@@ -6,6 +6,7 @@ import android.util.Log;
 import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.sdk.ProductConnectListener;
+import com.autel.common.CallbackWithNoParam;
 
 public class MainActivity extends AppCompatActivity {
     private final String TAG = "GimbalPro";
@@ -13,26 +14,32 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // We use the standard layout we already have
         setContentView(R.layout.activity_main);
         
-        setTitle("Waiting for Gimbal...");
+        setTitle("Initializing SDK...");
 
-        // Initialize the Autel engine
-        Autel.init(this, false);
+        Autel.init(this, "", new CallbackWithNoParam() {
+            @Override
+            public void onSuccess() {
+                Log.d(TAG, "SDK Initialized Successfully");
+                runOnUiThread(() -> setTitle("Waiting for Gimbal..."));
+            }
 
-        // Set up the listener for the gimbal
+            @Override
+            public void onFailure(String error) {
+                Log.e(TAG, "SDK Init Failed: " + error);
+                runOnUiThread(() -> setTitle("Init Failed: " + error));
+            }
+        });
+
         Autel.setProductConnectListener(new ProductConnectListener() {
             @Override
             public void productConnected(BaseProduct product) {
-                Log.d(TAG, "Product Connected: " + product.getType());
-                runOnUiThread(() -> setTitle("Gimbal Connected: " + product.getType()));
+                runOnUiThread(() -> setTitle("Connected: " + product.getType()));
             }
 
             @Override
             public void productDisconnected() {
-                Log.d(TAG, "Product Disconnected");
                 runOnUiThread(() -> setTitle("Gimbal Disconnected"));
             }
         });
