@@ -1,5 +1,9 @@
 name: Build Gimbal Pro APK
-    on: [push]
+    
+    on:
+      push:
+        branches: [ "main" ]
+    
     jobs:
       build:
         runs-on: ubuntu-latest
@@ -10,6 +14,7 @@ name: Build Gimbal Pro APK
             with:
               java-version: '17'
               distribution: 'temurin'
+              cache: gradle
           - name: Download Gradle Wrapper JAR
             run: |
               mkdir -p gradle/wrapper
@@ -25,3 +30,4 @@ name: Build Gimbal Pro APK
             with:
               name: app-debug
               path: app/build/outputs/apk/debug/app-debug.apk
+    
