@@ -7,6 +7,7 @@ import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.sdk.ProductConnectListener;
 import com.autel.common.CallbackWithNoParam;
+import com.autel.common.error.AutelError;
 
 public class MainActivity extends AppCompatActivity {
     private final String TAG = "GimbalPro";
@@ -26,9 +27,9 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(String error) {
-                Log.e(TAG, "SDK Init Failed: " + error);
-                runOnUiThread(() -> setTitle("Init Failed: " + error));
+            public void onFailure(AutelError error) {
+                Log.e(TAG, "SDK Init Failed: " + error.getDescription());
+                runOnUiThread(() -> setTitle("Init Failed: " + error.getDescription()));
             }
         });
 
