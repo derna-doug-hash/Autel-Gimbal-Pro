@@ -23,6 +23,7 @@
 
         <activity
             android:name=".ProductActivity"
+            android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:launchMode="singleTask"
             android:screenOrientation="portrait">
@@ -77,6 +78,9 @@
             android:theme="@style/CodecTheme" />
 
         <receiver android:name=".UsbBroadCastReceiver">
+           <receiver 
+            android:name=".UsbBroadCastReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.autel.sdk.action.USB_ACCESSORY_ATTACHED" />
             </intent-filter>
