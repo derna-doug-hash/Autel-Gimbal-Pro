@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Autel Gimbal Pro Control" android:textSize="24sp" android:textStyle="bold" />
+
+    <TextView android:id="@+id/statusText" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Status: UNKNOWN" android:textColor="#FF0000" />
+
+    <!-- PITCH -->
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Pitch (Tilt)" android:layout_marginTop="20dp"/>
+    <SeekBar android:id="@+id/pitchSeekBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="180" android:progress="90" />
+
+    <!-- YAW -->
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Yaw (Pan)"/>
+    <SeekBar android:id="@+id/yawSeekBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="180" android:progress="90" />
+
+    <!-- ROLL (The Problem Axis) -->
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Roll (Horizon) - Manual Correction" android:textStyle="bold" />
+    <SeekBar android:id="@+id/rollSeekBar" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="60" android:progress="30" />
+    
+    <Switch android:id="@+id/rollInvertSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Reverse Roll Logic" android:layout_marginTop="10dp" />
+
+    <Button android:id="@+id/btnReset" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="CENTER ALL MOTORS" android:layout_marginTop="30dp" />
+
+</LinearLayout>
