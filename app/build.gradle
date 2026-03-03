@@ -1,0 +1,5 @@
+dependencies {
+    implementation 'com.autel:autel-msdk:2.0.0' // Direct link to MSDK 2.0
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+}
