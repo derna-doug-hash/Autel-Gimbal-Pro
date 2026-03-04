@@ -9,7 +9,10 @@ android {
     defaultConfig {
         applicationId "com.autel.gimbalpro"
         minSdk 24
-        targetSdk 33
+        
+        // DOWNGRADED to 30 to bypass Android 12+ PendingIntent security restrictions
+        targetSdk 30
+        
         versionCode 1
         versionName "1.0"
         
@@ -36,10 +39,8 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     
-    // Required by Autel SDK for network requests
+    // Required by Autel SDK
     implementation 'com.squareup.okhttp3:okhttp:3.14.9'
     implementation 'com.squareup.okio:okio:1.17.5'
-    
-    // NEW: Required by Autel SDK to read the JSON response from the network
     implementation 'com.google.code.gson:gson:2.8.9'
 }
