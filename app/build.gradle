@@ -13,13 +13,11 @@ android {
         versionCode 1
         versionName "1.0"
         
-        // NEW: Tell it which architectures we are using
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a"
         }
     }
 
-    // NEW: Tell Gradle exactly where the .so files are located
     sourceSets {
         main {
             jniLibs.srcDirs = ['src/main/jniLibs']
@@ -37,4 +35,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
+    
+    // Required by Autel SDK for App Key network verification
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 }
