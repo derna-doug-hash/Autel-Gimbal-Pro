@@ -3,6 +3,7 @@ package com.autel.gimbalpro;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
+
 import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.sdk.ProductConnectListener;
@@ -16,10 +17,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
+
         setTitle("Initializing SDK...");
 
-        Autel.init(this, "", new CallbackWithNoParam() {
+        Autel.init(this, "97ffacc0-c832-4a0d-b008-6f8e9e8cbd37", new CallbackWithNoParam() {
             @Override
             public void onSuccess() {
                 Log.d(TAG, "SDK Initialized Successfully");
