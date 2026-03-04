@@ -36,6 +36,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     
-    // Required by Autel SDK for App Key network verification
-    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    // Downgraded to v3.14.9 because Autel SDK cannot read OkHttp v4+ (Kotlin)
+    implementation 'com.squareup.okhttp3:okhttp:3.14.9'
+    implementation 'com.squareup.okio:okio:1.17.5'
 }
