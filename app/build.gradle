@@ -1,29 +1,40 @@
 plugins {
-        id 'com.android.application'
-    }
-    
-    android {
-        namespace 'com.autel.gimbalpro'
-        compileSdk 33
-    
-        defaultConfig {
-            applicationId "com.autel.gimbalpro"
-            minSdk 24
-            targetSdk 33
-            versionCode 1
-            versionName "1.0"
-        }
-    
-        buildTypes {
-            release {
-                minifyEnabled false
-            }
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.autel.gimbalpro'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.autel.gimbalpro"
+        minSdk 24
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+        
+        // NEW: Tell it which architectures we are using
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a"
         }
     }
-    
-    dependencies {
-        implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])
-        implementation 'androidx.appcompat:appcompat:1.6.1'
-        implementation 'com.google.android.material:material:1.9.0'
+
+    // NEW: Tell Gradle exactly where the .so files are located
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
     }
-    
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.aar', '*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+}
