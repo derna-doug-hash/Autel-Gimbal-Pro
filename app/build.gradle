@@ -7,7 +7,7 @@ android {
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.autel.gimbalpro"
+        applicationId "com.diagnostics.gimbalv3"
         minSdk 24
         
         // DOWNGRADED to 30 to bypass Android 12+ PendingIntent security restrictions
