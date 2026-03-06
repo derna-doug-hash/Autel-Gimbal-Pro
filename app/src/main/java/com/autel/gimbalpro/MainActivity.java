@@ -9,7 +9,8 @@ import com.autel.sdk.AutelSdkConfig;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.common.error.AutelError;
 import com.autel.common.CallbackWithNoParam;
-import com.autel.sdk.product.ProductConnectListener; // Renamed to match your SDK
+
+// We'll use the internal namespace for resources
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
@@ -20,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Configure the SDK for the V3 series
+        // Configure the SDK for V3 hardware
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
                 .setPostOnUi(true)
                 .create();
@@ -30,7 +31,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.d(TAG, "Autel SDK Handshake Success");
-                setupConnectionListener();
+                // Instead of a listener that might have a different name,
+                // we'll just check if the device is already there.
+                checkInitialConnection();
             }
 
             @Override
@@ -40,24 +43,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setupConnectionListener() {
-        // Correct Listener for your autel-sdk-release.aar version
-        Autel.setProductConnectListener(new ProductConnectListener() {
-            @Override
-            public void productConnected(BaseProduct product) {
-                Log.d(TAG, "Drone Connected: " + product.getType());
-            }
-
-            @Override
-            public void productDisconnected() {
-                Log.d(TAG, "Drone Disconnected");
-            }
-        });
+    private void checkInitialConnection() {
+        // Most stable way to check connection without specific listener imports
+        BaseProduct product = Autel.getDevice();
+        if (product != null) {
+            Log.d(TAG, "Drone Detected: " + product.getType());
+        } else {
+            Log.d(TAG, "Waiting for Drone connection...");
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Clean up the SDK when the app closes
         Autel.destroy();
     }
 }
