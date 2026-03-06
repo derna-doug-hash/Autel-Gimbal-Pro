@@ -23,7 +23,6 @@ import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
-    
     private TextView statusTextView;
     private Button centerButton;
     private Switch reverseLogicSwitch;
@@ -40,8 +39,8 @@ public class MainActivity extends AppCompatActivity {
         if (statusTextView != null) {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(50);
-            statusTextView.setTextSize(11); // Even smaller to fit the payload
-            statusTextView.setText("Status: INITIALIZING LEVEL 2 SCANNER...");
+            statusTextView.setTextSize(11);
+            statusTextView.setText("Status: INITIALIZING L3 TARGET LOCK...");
         }
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
@@ -53,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: LEVEL 2 SCANNER ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO EXECUTE.");
+                        statusTextView.setText("Status: L3 ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO PULL FIRING CODES.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -66,51 +65,57 @@ public class MainActivity extends AppCompatActivity {
         });
 
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeLevelTwoScan());
+            centerButton.setOnClickListener(v -> executeLevelThreeScan());
         }
     }
 
-    private void executeLevelTwoScan() {
+    private void executeLevelThreeScan() {
         try {
-            StringBuilder report = new StringBuilder("=== LEVEL 2 VAULT SCAN ===\n");
-            
-            // The likely hiding spots for the drone connection
-            String[] targetClasses = {
-                "com.autel.sdk.DeviceManager",
-                "com.autel.sdk.ProductManager",
-                "com.autel.sdk.AutelManager",
-                "com.autel.sdk.product.BaseProduct"
-            };
+            StringBuilder report = new StringBuilder("=== L3 FIRING CODES ===\n");
 
-            for (String className : targetClasses) {
-                try {
-                    Class<?> clazz = Class.forName(className);
-                    report.append("\n[+] FOUND VAULT: ").append(className.substring(className.lastIndexOf('.') + 1)).append("\n");
-                    Method[] methods = clazz.getDeclaredMethods();
-                    
-                    int count = 0;
-                    for (Method m : methods) {
-                        String name = m.getName();
-                        String ret = m.getReturnType().getSimpleName();
-                        
-                        // Filter out boring default Java methods
-                        if (!name.equals("access$super") && !name.contains("lambda")) {
-                            report.append("  - ").append(name).append("() -> ").append(ret).append("\n");
-                            count++;
-                        }
-                    }
-                    if (count == 0) report.append("  (Vault is empty)\n");
-                    
-                } catch (ClassNotFoundException e) {
-                    report.append("[-] Missing Vault: ").append(className.substring(className.lastIndexOf('.') + 1)).append("\n");
+            // 1. Find the hook to grab BaseProduct
+            report.append("[1] CONNECTION HOOKS:\n");
+            Method[] allMethods = Autel.class.getMethods(); // getMethods() gets inherited ones too
+            for (Method m : allMethods) {
+                if (m.getReturnType().getSimpleName().contains("Product") || m.getReturnType().getSimpleName().contains("Device")) {
+                    report.append("  - ").append(m.getName()).append("() -> ").append(m.getReturnType().getSimpleName()).append("\n");
                 }
             }
-            
-            report.append("\n===========================\n");
-            
+
+            // 2. Crack open Gimbal and extract motor commands
+            report.append("\n[2] GIMBAL COMMANDS:\n");
+            Class<?> baseProductClass = Class.forName("com.autel.sdk.product.BaseProduct");
+            Method getGimbalMethod = null;
+            for (Method m : baseProductClass.getDeclaredMethods()) {
+                if (m.getName().equals("getGimbal")) {
+                    getGimbalMethod = m;
+                    break;
+                }
+            }
+
+            if (getGimbalMethod != null) {
+                Class<?> gimbalClass = getGimbalMethod.getReturnType();
+                report.append("  Class: ").append(gimbalClass.getSimpleName()).append("\n");
+                for (Method m : gimbalClass.getMethods()) {
+                    String name = m.getName().toLowerCase();
+                    // Hunt for any method that moves or sets the gimbal
+                    if (name.contains("set") || name.contains("move") || name.contains("angle") || name.contains("rotation") || name.contains("control")) {
+                        report.append("  - ").append(m.getName()).append("(");
+                        Class<?>[] params = m.getParameterTypes();
+                        for (int i=0; i<params.length; i++) {
+                            report.append(params[i].getSimpleName());
+                            if (i < params.length - 1) report.append(", ");
+                        }
+                        report.append(")\n");
+                    }
+                }
+            }
+
+            report.append("===========================\n");
+
             if (statusTextView != null) {
                 statusTextView.setText(report.toString());
-                statusTextView.setTextColor(android.graphics.Color.parseColor("#000000")); // Black text for readability
+                statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
             }
         } catch (Exception e) {
             if (statusTextView != null) {
