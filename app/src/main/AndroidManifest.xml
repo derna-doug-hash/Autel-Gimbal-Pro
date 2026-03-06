@@ -27,7 +27,7 @@
             android:value="97ffacc0-c832-4a0d-b008-6f8e9e8cbd37" />
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.autel.gimbalpro.MainActivity"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
