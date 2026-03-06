@@ -1,79 +1,42 @@
-package com.autel.gimbalpro;
+package com.diagnostics.gimbalv3;
 
 import android.os.Bundle;
+import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
-import android.widget.TextView;
-import android.widget.ScrollView;
-
 import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
-import com.autel.sdk.ProductConnectListener;
-import com.autel.common.CallbackWithNoParam;
 import com.autel.common.error.AutelError;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import com.autel.sdk.SDKManager;
 
 public class MainActivity extends AppCompatActivity {
-    private TextView errorText;
+    private static final String TAG = "AutelGimbalPro";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        // Build a blank text screen to show the error
-        ScrollView scroll = new ScrollView(this);
-        errorText = new TextView(this);
-        errorText.setTextSize(14f);
-        errorText.setPadding(40, 40, 40, 40);
-        scroll.addView(errorText);
-        setContentView(scroll);
+        setContentView(R.layout.activity_main);
 
-        // Intercept fatal crashes and print them to the screen instead of closing
-        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-            StringWriter sw = new StringWriter();
-            throwable.printStackTrace(new PrintWriter(sw));
-            
-            runOnUiThread(() -> {
-                errorText.setText("FATAL CRASH PREVENTED:\n\n" + sw.toString());
-            });
-            
-            // Keep the app frozen open for 60 seconds so you can read/screenshot it
-            try { Thread.sleep(60000); } catch (Exception e) {}
+        // Initialize the Autel SDK immediately to prevent the NullPointerException crash
+        SDKManager.getManager().init(this, new com.autel.common.CallbackWithNoParam() {
+            @Override
+            public void onSuccess() {
+                Log.d(TAG, "SDK Init Success");
+                checkConnection();
+            }
+
+            @Override
+            public void onFailure(AutelError error) {
+                Log.e(TAG, "SDK Init Failed: " + error.getDescription());
+            }
         });
+    }
 
-        errorText.setText("Initializing SDK...");
-
-        try {
-            // Changed to getApplicationContext() to prevent ClassCastExceptions
-            Autel.init(getApplicationContext(), "97ffacc0-c832-4a0d-b008-6f8e9e8cbd37", new CallbackWithNoParam() {
-                @Override
-                public void onSuccess() {
-                    runOnUiThread(() -> errorText.setText("Waiting for Gimbal..."));
-                }
-
-                @Override
-                public void onFailure(AutelError error) {
-                    runOnUiThread(() -> errorText.setText("Init Failed: " + error.getDescription()));
-                }
-            });
-
-            Autel.setProductConnectListener(new ProductConnectListener() {
-                @Override
-                public void productConnected(BaseProduct product) {
-                    runOnUiThread(() -> errorText.setText("Connected: " + product.getType()));
-                }
-
-                @Override
-                public void productDisconnected() {
-                    runOnUiThread(() -> errorText.setText("Gimbal Disconnected"));
-                }
-            });
-            
-        } catch (Throwable t) {
-            StringWriter sw = new StringWriter();
-            t.printStackTrace(new PrintWriter(sw));
-            errorText.setText("CAUGHT ERROR:\n\n" + sw.toString());
+    private void checkConnection() {
+        BaseProduct product = Autel.getDevice();
+        if (product != null) {
+            Log.d(TAG, "Drone Connected: " + product.getType());
+        } else {
+            Log.d(TAG, "No Drone Detected");
         }
     }
 }
