@@ -37,12 +37,11 @@ public class MainActivity extends AppCompatActivity {
         ViewGroup root = findViewById(android.R.id.content);
         findUIElements(root);
 
-        // Prep the screen for a massive data dump
         if (statusTextView != null) {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(50);
-            statusTextView.setTextSize(12); // Make it small to fit
-            statusTextView.setText("Status: INITIALIZING DEEP SCANNER...");
+            statusTextView.setTextSize(11); // Even smaller to fit the payload
+            statusTextView.setText("Status: INITIALIZING LEVEL 2 SCANNER...");
         }
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
@@ -54,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: SCANNER ARMED\n\nTURN DRONE ON.\nONCE CONNECTED, TAP 'CENTER ALL MOTORS' TO EXECUTE SCAN.");
+                        statusTextView.setText("Status: LEVEL 2 SCANNER ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO EXECUTE.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -66,32 +65,52 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Use the Center button as the trigger for the scan
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeDeepScan());
+            centerButton.setOnClickListener(v -> executeLevelTwoScan());
         }
     }
 
-    private void executeDeepScan() {
+    private void executeLevelTwoScan() {
         try {
-            StringBuilder report = new StringBuilder("=== AUTEL V3 SDK BRAIN DUMP ===\n");
+            StringBuilder report = new StringBuilder("=== LEVEL 2 VAULT SCAN ===\n");
             
-            // Scan the main Autel class to find the exact hidden methods
-            Method[] methods = Autel.class.getDeclaredMethods();
-            for (Method m : methods) {
-                String name = m.getName();
-                String ret = m.getReturnType().getSimpleName();
-                
-                // We only want methods that return an object (like a drone or product)
-                if (!ret.equals("void") && !ret.equals("boolean") && !ret.equals("int")) {
-                    report.append("Found: Autel.").append(name).append("() -> Returns: ").append(ret).append("\n");
+            // The likely hiding spots for the drone connection
+            String[] targetClasses = {
+                "com.autel.sdk.DeviceManager",
+                "com.autel.sdk.ProductManager",
+                "com.autel.sdk.AutelManager",
+                "com.autel.sdk.product.BaseProduct"
+            };
+
+            for (String className : targetClasses) {
+                try {
+                    Class<?> clazz = Class.forName(className);
+                    report.append("\n[+] FOUND VAULT: ").append(className.substring(className.lastIndexOf('.') + 1)).append("\n");
+                    Method[] methods = clazz.getDeclaredMethods();
+                    
+                    int count = 0;
+                    for (Method m : methods) {
+                        String name = m.getName();
+                        String ret = m.getReturnType().getSimpleName();
+                        
+                        // Filter out boring default Java methods
+                        if (!name.equals("access$super") && !name.contains("lambda")) {
+                            report.append("  - ").append(name).append("() -> ").append(ret).append("\n");
+                            count++;
+                        }
+                    }
+                    if (count == 0) report.append("  (Vault is empty)\n");
+                    
+                } catch (ClassNotFoundException e) {
+                    report.append("[-] Missing Vault: ").append(className.substring(className.lastIndexOf('.') + 1)).append("\n");
                 }
             }
             
-            report.append("===========================\n");
+            report.append("\n===========================\n");
             
             if (statusTextView != null) {
                 statusTextView.setText(report.toString());
+                statusTextView.setTextColor(android.graphics.Color.parseColor("#000000")); // Black text for readability
             }
         } catch (Exception e) {
             if (statusTextView != null) {
@@ -100,21 +119,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Dynamic UI Finder
     private void findUIElements(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
-            
             if (child instanceof TextView && !(child instanceof Button) && !(child instanceof Switch)) {
                 String text = ((TextView) child).getText().toString().toUpperCase();
-                if (text.contains("STATUS") || text.contains("UNKNOWN")) {
-                    statusTextView = (TextView) child;
-                }
+                if (text.contains("STATUS") || text.contains("UNKNOWN")) statusTextView = (TextView) child;
             } else if (child instanceof Button) {
                 String text = ((Button) child).getText().toString().toUpperCase();
-                if (text.contains("CENTER")) {
-                    centerButton = (Button) child;
-                }
+                if (text.contains("CENTER")) centerButton = (Button) child;
             } else if (child instanceof Switch) {
                 reverseLogicSwitch = (Switch) child;
             } else if (child instanceof SeekBar) {
