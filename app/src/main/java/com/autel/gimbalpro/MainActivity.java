@@ -1,4 +1,4 @@
-package com.diagnostics.gimbalv3;
+package com.autel.gimbalpro;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -7,6 +7,7 @@ import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.common.error.AutelError;
 import com.autel.sdk.SDKManager;
+import com.diagnostics.gimbalv3.R;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
@@ -16,7 +17,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize the Autel SDK immediately to prevent the NullPointerException crash
+        // This is the missing handshake that stops the crash
         SDKManager.getManager().init(this, new com.autel.common.CallbackWithNoParam() {
             @Override
             public void onSuccess() {
