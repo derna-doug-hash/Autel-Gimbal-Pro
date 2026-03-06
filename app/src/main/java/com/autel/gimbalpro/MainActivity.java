@@ -38,9 +38,9 @@ public class MainActivity extends AppCompatActivity {
 
         if (statusTextView != null) {
             statusTextView.setSingleLine(false);
-            statusTextView.setMaxLines(50);
-            statusTextView.setTextSize(11);
-            statusTextView.setText("Status: INITIALIZING L3 TARGET LOCK...");
+            statusTextView.setMaxLines(60);
+            statusTextView.setTextSize(10); // Shrinking text to fit the massive data dump
+            statusTextView.setText("Status: INITIALIZING L4 BUNKER BUSTER...");
         }
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: L3 ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO PULL FIRING CODES.");
+                        statusTextView.setText("Status: L4 ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO EXECUTE REATTACK.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -65,25 +65,24 @@ public class MainActivity extends AppCompatActivity {
         });
 
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeLevelThreeScan());
+            centerButton.setOnClickListener(v -> executeLevelFourScan());
         }
     }
 
-    private void executeLevelThreeScan() {
+    private void executeLevelFourScan() {
         try {
-            StringBuilder report = new StringBuilder("=== L3 FIRING CODES ===\n");
+            StringBuilder report = new StringBuilder("=== L4 BUNKER BUSTER ===\n");
 
-            // 1. Find the hook to grab BaseProduct
-            report.append("[1] CONNECTION HOOKS:\n");
-            Method[] allMethods = Autel.class.getMethods(); // getMethods() gets inherited ones too
-            for (Method m : allMethods) {
-                if (m.getReturnType().getSimpleName().contains("Product") || m.getReturnType().getSimpleName().contains("Device")) {
-                    report.append("  - ").append(m.getName()).append("() -> ").append(m.getReturnType().getSimpleName()).append("\n");
+            // 1. Force dump every single method in the Autel class
+            report.append("[1] AUTEL RAW DUMP:\n");
+            for (Method m : Autel.class.getDeclaredMethods()) {
+                if (!m.getName().contains("access$")) { // Hide internal android junk
+                    report.append(m.getName()).append("()->").append(m.getReturnType().getSimpleName()).append("\n");
                 }
             }
 
-            // 2. Crack open Gimbal and extract motor commands
-            report.append("\n[2] GIMBAL COMMANDS:\n");
+            // 2. Force dump every single method in the Gimbal class
+            report.append("\n[2] GIMBAL RAW DUMP:\n");
             Class<?> baseProductClass = Class.forName("com.autel.sdk.product.BaseProduct");
             Method getGimbalMethod = null;
             for (Method m : baseProductClass.getDeclaredMethods()) {
@@ -95,23 +94,20 @@ public class MainActivity extends AppCompatActivity {
 
             if (getGimbalMethod != null) {
                 Class<?> gimbalClass = getGimbalMethod.getReturnType();
-                report.append("  Class: ").append(gimbalClass.getSimpleName()).append("\n");
                 for (Method m : gimbalClass.getMethods()) {
-                    String name = m.getName().toLowerCase();
-                    // Hunt for any method that moves or sets the gimbal
-                    if (name.contains("set") || name.contains("move") || name.contains("angle") || name.contains("rotation") || name.contains("control")) {
-                        report.append("  - ").append(m.getName()).append("(");
+                    // Filter out standard Java object junk to save screen space
+                    String name = m.getName();
+                    if (!name.equals("equals") && !name.equals("hashCode") && !name.equals("getClass") && !name.equals("wait") && !name.equals("notify") && !name.equals("notifyAll") && !name.equals("toString")) {
+                        report.append(name).append("(");
                         Class<?>[] params = m.getParameterTypes();
                         for (int i=0; i<params.length; i++) {
                             report.append(params[i].getSimpleName());
-                            if (i < params.length - 1) report.append(", ");
+                            if (i < params.length - 1) report.append(",");
                         }
                         report.append(")\n");
                     }
                 }
             }
-
-            report.append("===========================\n");
 
             if (statusTextView != null) {
                 statusTextView.setText(report.toString());
