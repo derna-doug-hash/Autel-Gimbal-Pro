@@ -1,7 +1,6 @@
 package com.autel.gimbalpro;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -9,13 +8,6 @@ import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-
-import com.autel.sdk.Autel;
-import com.autel.sdk.AutelSdkConfig;
-import com.autel.common.error.AutelError;
-import com.autel.common.CallbackWithNoParam;
-import com.autel.sdk.ProductConnectListener;
-import com.autel.sdk.product.BaseProduct;
 
 import java.lang.reflect.Method;
 
@@ -25,7 +17,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView statusTextView;
     private Button centerButton;
     private Switch reverseLogicSwitch;
-    private BaseProduct liveDrone = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,149 +30,89 @@ public class MainActivity extends AppCompatActivity {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(80);
             statusTextView.setTextSize(10);
-            statusTextView.setText("Status: INITIALIZING L7.1 ARMORED CAPTURE...");
+            statusTextView.setText("Status: L-8 DEEP SCRAPER ARMED.\n\nNO DRONE CONNECTION REQUIRED.\nFLIP 'REVERSE ROLL LOGIC' TO EXECUTE AREA SWEEP.");
+            statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
         }
 
-        AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder().setPostOnUi(true).create();
-
-        Autel.init(this, config, new CallbackWithNoParam() {
-            @Override
-            public void onSuccess() {
-                try {
-                    Autel.setProductConnectListener(new ProductConnectListener() {
-                        @Override
-                        public void productConnected(BaseProduct product) {
-                            try {
-                                liveDrone = product;
-                                final String name = (product != null) ? product.getClass().getName() : "NULL PRODUCT";
-                                runOnUiThread(() -> {
-                                    if (statusTextView != null) {
-                                        statusTextView.setText("Status: HVT CAPTURED!\nClass: " + name + "\n\nTAP 'CENTER ALL MOTORS' TO INTERROGATE.");
-                                        statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
-                                    }
-                                });
-                            } catch (Exception e) {
-                                logError("Capture Error: " + e.getMessage());
-                            }
-                        }
-
-                        @Override
-                        public void productDisconnected() {
-                            liveDrone = null;
-                            logError("HVT LOST (DISCONNECTED).");
-                        }
-                    });
-                    
-                    runOnUiThread(() -> {
-                        if (statusTextView != null && liveDrone == null) {
-                            statusTextView.setText("Status: LISTENING POST ACTIVE.\n\nWAITING FOR DRONE TO LINK...");
-                        }
-                    });
-                } catch (Exception e) {
-                    logError("Listener Error: " + e.getMessage());
-                }
-            }
-
-            @Override
-            public void onFailure(AutelError error) {
-                logError("Handshake Failed: " + error.getDescription());
-            }
-        });
-
-        if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeInterrogation());
-        }
-
-        // The Secondary Offline Breach (Activated by the Switch)
         if (reverseLogicSwitch != null) {
             reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (isChecked) executeBlindInternalSweep();
+                if (isChecked) executeL8DeepScrape();
             });
         }
     }
 
-    private void logError(String msg) {
-        runOnUiThread(() -> {
-            if (statusTextView != null) {
-                statusTextView.setText("ERROR: " + msg);
-                statusTextView.setTextColor(android.graphics.Color.RED);
-            }
-        });
-    }
-
-    private void executeInterrogation() {
-        if (liveDrone == null) {
-            logError("NO HVT IN CUSTODY. (If stuck, flip Reverse Roll switch for Offline Breach)");
-            return;
+    private void executeL8DeepScrape() {
+        if (statusTextView != null) {
+            statusTextView.setText("Status: EXECUTING BRUTE FORCE SWEEP. STANDBY...");
+            statusTextView.setTextColor(android.graphics.Color.RED);
         }
 
-        try {
-            StringBuilder report = new StringBuilder("=== L7.1 INTERROGATION ===\n");
+        new Thread(() -> {
+            StringBuilder report = new StringBuilder("=== L-8 AREA BDA ===\n");
             
-            Method getGimbalMethod = liveDrone.getClass().getMethod("getGimbal");
-            Object liveGimbal = getGimbalMethod.invoke(liveDrone);
+            // The drop zones
+            String[] packages = {
+                "com.autel.internal.gimbal.", 
+                "com.autel.internal.sdk.gimbal.", 
+                "com.autel.sdk.gimbal.",
+                "com.autel.internal.video.",
+                "com.autel.internal.remotecontroller."
+            };
             
-            if (liveGimbal != null) {
-                Class<?> realGimbalClass = liveGimbal.getClass();
-                report.append("REAL GIMBAL CLASS: ").append(realGimbalClass.getName()).append("\n\n");
-                
-                for (Method m : realGimbalClass.getDeclaredMethods()) {
-                    String name = m.getName();
-                    if (!name.contains("access$") && !name.equals("toString") && !name.equals("hashCode")) {
-                        report.append(name).append("(");
-                        Class<?>[] params = m.getParameterTypes();
-                        for (int i=0; i<params.length; i++) {
-                            report.append(params[i].getSimpleName());
-                            if (i < params.length -1) report.append(",");
+            // The obfuscated target list
+            String[] classNames = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "GimbalManager", "GimbalController", "AutelGimbalController"};
+
+            boolean foundSomething = false;
+
+            for (String pkg : packages) {
+                for (String cls : classNames) {
+                    try {
+                        Class<?> targetClass = Class.forName(pkg + cls);
+                        Method[] methods = targetClass.getDeclaredMethods();
+
+                        for (Method m : methods) {
+                            Class<?>[] params = m.getParameterTypes();
+                            // Look for methods taking 2, 3, or 4 parameters (Pitch, Roll, Yaw, Time/Speed)
+                            if (params.length >= 2 && params.length <= 4) {
+                                boolean allNumeric = true;
+                                for (Class<?> p : params) {
+                                    String pName = p.getSimpleName().toLowerCase();
+                                    if (!pName.equals("float") && !pName.equals("int") && !pName.equals("double") && !pName.equals("short") && !pName.equals("long")) {
+                                        allNumeric = false;
+                                        break;
+                                    }
+                                }
+                                
+                                // Only log it if it matches our numeric firing signature
+                                if (allNumeric) {
+                                    if (!foundSomething) {
+                                        report.append("\n[!] HIGH PROBABILITY TARGETS ACQUIRED:\n");
+                                        foundSomething = true;
+                                    }
+                                    report.append("Class [").append(cls).append("] -> ").append(m.getName()).append("(");
+                                    for (int i = 0; i < params.length; i++) {
+                                        report.append(params[i].getSimpleName());
+                                        if (i < params.length - 1) report.append(", ");
+                                    }
+                                    report.append(")\n");
+                                }
+                            }
                         }
-                        report.append(")\n");
+                    } catch (Throwable e) {
+                        // Class doesn't exist or is locked, keep moving
                     }
                 }
-            } else {
-                report.append("LIVE GIMBAL RETURNED NULL.");
             }
 
-            if (statusTextView != null) {
-                statusTextView.setText(report.toString());
-                statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
-            }
-        } catch (Exception e) {
-            logError("Interrogation Error: " + e.getMessage());
-        }
-    }
+            if (!foundSomething) report.append("\nNo numeric firing sequences found in grid.\n");
 
-    // The SIGINT Pipeline Breach
-    private void executeBlindInternalSweep() {
-        try {
-            StringBuilder report = new StringBuilder("=== SIGINT OFFLINE BREACH ===\n");
-            String[] targets = {"a", "b", "c", "d", "e", "GimbalManager", "RxAutelGimbalInternal"};
-            boolean foundAny = false;
-
-            for (String t : targets) {
-                try {
-                    Class<?> clazz = Class.forName("com.autel.internal.gimbal." + t);
-                    report.append("\n[+] Found Obfuscated File: ").append(t).append(".class\n");
-                    foundAny = true;
-                    for (Method m : clazz.getDeclaredMethods()) {
-                        String name = m.getName().toLowerCase();
-                        if(name.contains("set") || name.contains("angle") || name.contains("move") || name.contains("rotation")) {
-                            report.append("  - ").append(m.getName()).append("\n");
-                        }
-                    }
-                } catch (Exception e) {
-                    // Ignore missing files
+            runOnUiThread(() -> {
+                if (statusTextView != null) {
+                    statusTextView.setText(report.toString());
+                    statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
                 }
-            }
-
-            if (!foundAny) report.append("No internal gimbal files found. Deeper obfuscation present.");
-
-            if (statusTextView != null) {
-                statusTextView.setText(report.toString());
-                statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
-            }
-        } catch (Exception e) {
-            logError("Sweep Error: " + e.toString());
-        }
+            });
+        }).start();
     }
 
     private void findUIElements(ViewGroup group) {
