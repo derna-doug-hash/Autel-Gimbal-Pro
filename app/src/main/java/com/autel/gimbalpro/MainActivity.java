@@ -9,9 +9,7 @@ import com.autel.sdk.AutelSdkConfig;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.common.error.AutelError;
 import com.autel.common.CallbackWithNoParam;
-import com.autel.sdk.product.AutelProductConnectListener;
-
-// This import connects the code to your app's internal resources
+import com.autel.sdk.product.ProductConnectListener; // Renamed to match your SDK
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
@@ -22,14 +20,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Prepare the Configuration
-        // The App Key is read automatically from your Manifest
+        // Configure the SDK for the V3 series
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
                 .setPostOnUi(true)
                 .create();
 
-        // 2. Initialize the SDK (The Handshake)
-        // This stops the NullPointerException crash by waking up the SDK correctly
+        // Perform the Handshake (Authorization)
         Autel.init(this, config, new CallbackWithNoParam() {
             @Override
             public void onSuccess() {
@@ -45,12 +41,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupConnectionListener() {
-        // 3. Listen for the Drone (V3 Method)
-        Autel.setProductConnectListener(new AutelProductConnectListener() {
+        // Correct Listener for your autel-sdk-release.aar version
+        Autel.setProductConnectListener(new ProductConnectListener() {
             @Override
             public void productConnected(BaseProduct product) {
                 Log.d(TAG, "Drone Connected: " + product.getType());
-                // Your gimbal logic will go here once we are inside
             }
 
             @Override
@@ -63,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Clean up the SDK when the app closes
         Autel.destroy();
     }
 }
