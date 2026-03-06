@@ -5,6 +5,8 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -13,56 +15,51 @@ import com.autel.sdk.AutelSdkConfig;
 import com.autel.common.error.AutelError;
 import com.autel.common.CallbackWithNoParam;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
+    
+    // UI Elements
     private TextView statusTextView;
     private Button centerButton;
+    private Switch reverseLogicSwitch;
+    private List<SeekBar> sliders = new ArrayList<>();
+    
+    // Gimbal Data States
+    private boolean isReverseLogicEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Dynamically wire up the UI to prevent build failures
+        // 1. Scan the screen and grab the controls
         ViewGroup root = findViewById(android.R.id.content);
         findUIElements(root);
 
-        // 2. Set initial state
         if (statusTextView != null) {
-            statusTextView.setText("Status: INITIALIZING UI...");
+            statusTextView.setText("Status: WIRING SLIDERS...");
         }
 
-        // 3. Test the Button
-        if (centerButton != null) {
-            centerButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (statusTextView != null) {
-                        statusTextView.setText("Status: UI ACTIVE - MOTORS CENTERED (SIMULATED)");
-                    }
-                }
-            });
-        }
+        // 2. Hook up the controls
+        setupControls();
 
-        // 4. Configure the SDK
+        // 3. Keep our stable Handshake
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
                 .setPostOnUi(true)
                 .create();
 
-        // 5. Perform the Handshake
         Autel.init(this, config, new CallbackWithNoParam() {
             @Override
             public void onSuccess() {
-                Log.d(TAG, "Autel SDK Handshake Success");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (statusTextView != null) {
-                            statusTextView.setText("Status: HANDSHAKE OK - WAITING ON GIMBAL API");
-                            statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00")); // Green
-                        }
+                runOnUiThread(() -> {
+                    if (statusTextView != null) {
+                        statusTextView.setText("Status: SYSTEM ARMED - READY FOR GIMBAL INPUT");
+                        statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
             }
@@ -74,26 +71,81 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // Recursive function to automatically find your XML elements without needing exact IDs
+    private void setupControls() {
+        // Wire the Reverse Logic Switch
+        if (reverseLogicSwitch != null) {
+            reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                isReverseLogicEnabled = isChecked;
+                updateStatus("Reverse Logic: " + (isChecked ? "ON" : "OFF"));
+            });
+        }
+
+        // Wire the Center Motors Button
+        if (centerButton != null) {
+            centerButton.setOnClickListener(v -> {
+                // Reset sliders to middle (assuming 0-100 range, middle is 50)
+                for (SeekBar slider : sliders) {
+                    slider.setProgress(50);
+                }
+                updateStatus("COMMAND: CENTER ALL MOTORS");
+            });
+        }
+
+        // Wire the 3 SeekBars (Pitch, Yaw, Roll)
+        for (int i = 0; i < sliders.size(); i++) {
+            final int sliderIndex = i;
+            sliders.get(i).setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser) {
+                        String axis = (sliderIndex == 0) ? "PITCH" : (sliderIndex == 1) ? "YAW" : "ROLL";
+                        
+                        // Apply Reverse Logic to Roll if enabled
+                        int calculatedProgress = progress;
+                        if (axis.equals("ROLL") && isReverseLogicEnabled) {
+                            calculatedProgress = seekBar.getMax() - progress;
+                        }
+                        
+                        updateStatus(axis + " Input: " + calculatedProgress);
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {}
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+    }
+
+    private void updateStatus(String message) {
+        if (statusTextView != null) {
+            statusTextView.setText("Status: " + message);
+        }
+        Log.d(TAG, message);
+    }
+
+    // Bulletproof dynamic UI finder
     private void findUIElements(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
             
-            if (child instanceof TextView && !(child instanceof Button)) {
+            if (child instanceof TextView && !(child instanceof Button) && !(child instanceof Switch)) {
                 String text = ((TextView) child).getText().toString().toUpperCase();
                 if (text.contains("STATUS") || text.contains("UNKNOWN")) {
                     statusTextView = (TextView) child;
                 }
-            }
-            
-            if (child instanceof Button) {
+            } else if (child instanceof Button) {
                 String text = ((Button) child).getText().toString().toUpperCase();
                 if (text.contains("CENTER")) {
                     centerButton = (Button) child;
                 }
-            }
-
-            if (child instanceof ViewGroup) {
+            } else if (child instanceof Switch) {
+                reverseLogicSwitch = (Switch) child;
+            } else if (child instanceof SeekBar) {
+                sliders.add((SeekBar) child);
+            } else if (child instanceof ViewGroup) {
                 findUIElements((ViewGroup) child);
             }
         }
