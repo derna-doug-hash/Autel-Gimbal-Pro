@@ -39,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(60);
             statusTextView.setTextSize(10);
-            statusTextView.setText("Status: INITIALIZING L5 PENETRATOR...");
+            statusTextView.setText("Status: INITIALIZING L6 THERMAL SWEEP...");
         }
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: L5 ARMED\n\nTAP 'CENTER ALL MOTORS' TO BREACH Rx VAULT.");
+                        statusTextView.setText("Status: L6 ARMED\n\nTAP 'CENTER ALL MOTORS' TO INITIATE THERMAL SWEEP.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -64,36 +64,50 @@ public class MainActivity extends AppCompatActivity {
         });
 
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeLevelFiveScan());
+            centerButton.setOnClickListener(v -> executeLevelSixScan());
         }
     }
 
-    private void executeLevelFiveScan() {
+    private void executeLevelSixScan() {
         try {
-            StringBuilder report = new StringBuilder("=== L5 Rx VAULT BREACH ===\n");
-
-            // Navigate down the chain to the hidden Rx class
+            StringBuilder report = new StringBuilder("=== L6 THERMAL SWEEP ===\n");
+            
             Class<?> baseProductClass = Class.forName("com.autel.sdk.product.BaseProduct");
-            Method getGimbalMethod = baseProductClass.getMethod("getGimbal");
-            Class<?> gimbalClass = getGimbalMethod.getReturnType();
-            Method toRxMethod = gimbalClass.getMethod("toRx");
-            Class<?> rxClass = toRxMethod.getReturnType();
-
-            report.append("Vault Name: ").append(rxClass.getSimpleName()).append("\n\n");
-
-            // Dump everything inside
-            for (Method m : rxClass.getMethods()) {
-                String name = m.getName();
-                if (!name.equals("equals") && !name.equals("hashCode") && !name.equals("getClass") && 
-                    !name.equals("wait") && !name.equals("notify") && !name.equals("notifyAll") && !name.equals("toString")) {
+            
+            // We know these are the component getter methods from our L2 scan
+            String[] componentGetters = {"getGimbal", "getFlyController", "getRemoteController", "getCameraManager"};
+            
+            for (String getterName : componentGetters) {
+                try {
+                    Method getterMethod = baseProductClass.getMethod(getterName);
+                    Class<?> componentClass = getterMethod.getReturnType();
                     
-                    report.append(name).append("(");
-                    Class<?>[] params = m.getParameterTypes();
-                    for (int i = 0; i < params.length; i++) {
-                        report.append(params[i].getSimpleName());
-                        if (i < params.length - 1) report.append(",");
+                    report.append("\n[Target: ").append(componentClass.getSimpleName()).append("]\n");
+                    
+                    boolean foundSomething = false;
+                    for (Method m : componentClass.getMethods()) {
+                        String name = m.getName().toLowerCase();
+                        // The thermal filter: only show methods related to movement/angles
+                        if (name.contains("angle") || name.contains("pitch") || 
+                            name.contains("yaw") || name.contains("roll") || 
+                            name.contains("move") || name.contains("rotation") || name.contains("dial")) {
+                            
+                            report.append("  HIT: ").append(m.getName()).append("(");
+                            Class<?>[] params = m.getParameterTypes();
+                            for (int i = 0; i < params.length; i++) {
+                                report.append(params[i].getSimpleName());
+                                if (i < params.length - 1) report.append(", ");
+                            }
+                            report.append(")\n");
+                            foundSomething = true;
+                        }
                     }
-                    report.append(")\n");
+                    if (!foundSomething) {
+                        report.append("  (No thermal signatures found)\n");
+                    }
+                    
+                } catch (Exception e) {
+                    report.append("  [-] Could not scan ").append(getterName).append("\n");
                 }
             }
 
