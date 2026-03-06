@@ -15,6 +15,7 @@ import com.autel.sdk.AutelSdkConfig;
 import com.autel.common.error.AutelError;
 import com.autel.common.CallbackWithNoParam;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,32 +24,27 @@ import com.autel.gimbalpro.R;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
     
-    // UI Elements
     private TextView statusTextView;
     private Button centerButton;
     private Switch reverseLogicSwitch;
     private List<SeekBar> sliders = new ArrayList<>();
-    
-    // Gimbal Data States
-    private boolean isReverseLogicEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // 1. Scan the screen and grab the controls
         ViewGroup root = findViewById(android.R.id.content);
         findUIElements(root);
 
+        // Prep the screen for a massive data dump
         if (statusTextView != null) {
-            statusTextView.setText("Status: WIRING SLIDERS...");
+            statusTextView.setSingleLine(false);
+            statusTextView.setMaxLines(50);
+            statusTextView.setTextSize(12); // Make it small to fit
+            statusTextView.setText("Status: INITIALIZING DEEP SCANNER...");
         }
 
-        // 2. Hook up the controls
-        setupControls();
-
-        // 3. Keep our stable Handshake
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
                 .setPostOnUi(true)
                 .create();
@@ -58,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: SYSTEM ARMED - READY FOR GIMBAL INPUT");
+                        statusTextView.setText("Status: SCANNER ARMED\n\nTURN DRONE ON.\nONCE CONNECTED, TAP 'CENTER ALL MOTORS' TO EXECUTE SCAN.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -66,67 +62,45 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(AutelError error) {
-                Log.e(TAG, "Autel SDK Handshake Failed: " + error.getDescription());
+                Log.e(TAG, "Handshake Failed: " + error.getDescription());
             }
         });
-    }
 
-    private void setupControls() {
-        // Wire the Reverse Logic Switch
-        if (reverseLogicSwitch != null) {
-            reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                isReverseLogicEnabled = isChecked;
-                updateStatus("Reverse Logic: " + (isChecked ? "ON" : "OFF"));
-            });
-        }
-
-        // Wire the Center Motors Button
+        // Use the Center button as the trigger for the scan
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> {
-                // Reset sliders to middle (assuming 0-100 range, middle is 50)
-                for (SeekBar slider : sliders) {
-                    slider.setProgress(50);
-                }
-                updateStatus("COMMAND: CENTER ALL MOTORS");
-            });
-        }
-
-        // Wire the 3 SeekBars (Pitch, Yaw, Roll)
-        for (int i = 0; i < sliders.size(); i++) {
-            final int sliderIndex = i;
-            sliders.get(i).setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override
-                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                    if (fromUser) {
-                        String axis = (sliderIndex == 0) ? "PITCH" : (sliderIndex == 1) ? "YAW" : "ROLL";
-                        
-                        // Apply Reverse Logic to Roll if enabled
-                        int calculatedProgress = progress;
-                        if (axis.equals("ROLL") && isReverseLogicEnabled) {
-                            calculatedProgress = seekBar.getMax() - progress;
-                        }
-                        
-                        updateStatus(axis + " Input: " + calculatedProgress);
-                    }
-                }
-
-                @Override
-                public void onStartTrackingTouch(SeekBar seekBar) {}
-
-                @Override
-                public void onStopTrackingTouch(SeekBar seekBar) {}
-            });
+            centerButton.setOnClickListener(v -> executeDeepScan());
         }
     }
 
-    private void updateStatus(String message) {
-        if (statusTextView != null) {
-            statusTextView.setText("Status: " + message);
+    private void executeDeepScan() {
+        try {
+            StringBuilder report = new StringBuilder("=== AUTEL V3 SDK BRAIN DUMP ===\n");
+            
+            // Scan the main Autel class to find the exact hidden methods
+            Method[] methods = Autel.class.getDeclaredMethods();
+            for (Method m : methods) {
+                String name = m.getName();
+                String ret = m.getReturnType().getSimpleName();
+                
+                // We only want methods that return an object (like a drone or product)
+                if (!ret.equals("void") && !ret.equals("boolean") && !ret.equals("int")) {
+                    report.append("Found: Autel.").append(name).append("() -> Returns: ").append(ret).append("\n");
+                }
+            }
+            
+            report.append("===========================\n");
+            
+            if (statusTextView != null) {
+                statusTextView.setText(report.toString());
+            }
+        } catch (Exception e) {
+            if (statusTextView != null) {
+                statusTextView.setText("Scan Error: " + e.toString());
+            }
         }
-        Log.d(TAG, message);
     }
 
-    // Bulletproof dynamic UI finder
+    // Dynamic UI Finder
     private void findUIElements(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
