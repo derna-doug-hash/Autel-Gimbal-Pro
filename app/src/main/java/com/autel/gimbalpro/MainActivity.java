@@ -25,7 +25,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
     private TextView statusTextView;
     private Button centerButton;
-    private Switch reverseLogicSwitch;
     private List<SeekBar> sliders = new ArrayList<>();
 
     @Override
@@ -39,8 +38,8 @@ public class MainActivity extends AppCompatActivity {
         if (statusTextView != null) {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(60);
-            statusTextView.setTextSize(10); // Shrinking text to fit the massive data dump
-            statusTextView.setText("Status: INITIALIZING L4 BUNKER BUSTER...");
+            statusTextView.setTextSize(10);
+            statusTextView.setText("Status: INITIALIZING L5 PENETRATOR...");
         }
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
@@ -52,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: L4 ARMED\n\nTURN DRONE ON.\nTAP 'CENTER ALL MOTORS' TO EXECUTE REATTACK.");
+                        statusTextView.setText("Status: L5 ARMED\n\nTAP 'CENTER ALL MOTORS' TO BREACH Rx VAULT.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -65,47 +64,36 @@ public class MainActivity extends AppCompatActivity {
         });
 
         if (centerButton != null) {
-            centerButton.setOnClickListener(v -> executeLevelFourScan());
+            centerButton.setOnClickListener(v -> executeLevelFiveScan());
         }
     }
 
-    private void executeLevelFourScan() {
+    private void executeLevelFiveScan() {
         try {
-            StringBuilder report = new StringBuilder("=== L4 BUNKER BUSTER ===\n");
+            StringBuilder report = new StringBuilder("=== L5 Rx VAULT BREACH ===\n");
 
-            // 1. Force dump every single method in the Autel class
-            report.append("[1] AUTEL RAW DUMP:\n");
-            for (Method m : Autel.class.getDeclaredMethods()) {
-                if (!m.getName().contains("access$")) { // Hide internal android junk
-                    report.append(m.getName()).append("()->").append(m.getReturnType().getSimpleName()).append("\n");
-                }
-            }
-
-            // 2. Force dump every single method in the Gimbal class
-            report.append("\n[2] GIMBAL RAW DUMP:\n");
+            // Navigate down the chain to the hidden Rx class
             Class<?> baseProductClass = Class.forName("com.autel.sdk.product.BaseProduct");
-            Method getGimbalMethod = null;
-            for (Method m : baseProductClass.getDeclaredMethods()) {
-                if (m.getName().equals("getGimbal")) {
-                    getGimbalMethod = m;
-                    break;
-                }
-            }
+            Method getGimbalMethod = baseProductClass.getMethod("getGimbal");
+            Class<?> gimbalClass = getGimbalMethod.getReturnType();
+            Method toRxMethod = gimbalClass.getMethod("toRx");
+            Class<?> rxClass = toRxMethod.getReturnType();
 
-            if (getGimbalMethod != null) {
-                Class<?> gimbalClass = getGimbalMethod.getReturnType();
-                for (Method m : gimbalClass.getMethods()) {
-                    // Filter out standard Java object junk to save screen space
-                    String name = m.getName();
-                    if (!name.equals("equals") && !name.equals("hashCode") && !name.equals("getClass") && !name.equals("wait") && !name.equals("notify") && !name.equals("notifyAll") && !name.equals("toString")) {
-                        report.append(name).append("(");
-                        Class<?>[] params = m.getParameterTypes();
-                        for (int i=0; i<params.length; i++) {
-                            report.append(params[i].getSimpleName());
-                            if (i < params.length - 1) report.append(",");
-                        }
-                        report.append(")\n");
+            report.append("Vault Name: ").append(rxClass.getSimpleName()).append("\n\n");
+
+            // Dump everything inside
+            for (Method m : rxClass.getMethods()) {
+                String name = m.getName();
+                if (!name.equals("equals") && !name.equals("hashCode") && !name.equals("getClass") && 
+                    !name.equals("wait") && !name.equals("notify") && !name.equals("notifyAll") && !name.equals("toString")) {
+                    
+                    report.append(name).append("(");
+                    Class<?>[] params = m.getParameterTypes();
+                    for (int i = 0; i < params.length; i++) {
+                        report.append(params[i].getSimpleName());
+                        if (i < params.length - 1) report.append(",");
                     }
+                    report.append(")\n");
                 }
             }
 
@@ -129,8 +117,6 @@ public class MainActivity extends AppCompatActivity {
             } else if (child instanceof Button) {
                 String text = ((Button) child).getText().toString().toUpperCase();
                 if (text.contains("CENTER")) centerButton = (Button) child;
-            } else if (child instanceof Switch) {
-                reverseLogicSwitch = (Switch) child;
             } else if (child instanceof SeekBar) {
                 sliders.add((SeekBar) child);
             } else if (child instanceof ViewGroup) {
