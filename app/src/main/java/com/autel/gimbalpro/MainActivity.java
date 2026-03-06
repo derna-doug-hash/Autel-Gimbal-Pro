@@ -3,11 +3,15 @@ package com.autel.gimbalpro;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.autel.sdk.Autel;
+import com.autel.sdk.AutelSdkConfig;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.common.error.AutelError;
-import com.autel.sdk.SDKManager;
-// We use the internal namespace for the resources (R)
+import com.autel.common.CallbackWithNoParam;
+import com.autel.sdk.product.AutelProductConnectListener;
+
+// This import connects the code to your app's internal resources
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
@@ -18,28 +22,48 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize the Autel SDK immediately to prevent the crash
-        // This is the 'Handshake' that validates your App Key
-        SDKManager.getManager().init(this, new com.autel.common.CallbackWithNoParam() {
+        // 1. Prepare the Configuration
+        // The App Key is read automatically from your Manifest
+        AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder()
+                .setPostOnUi(true)
+                .create();
+
+        // 2. Initialize the SDK (The Handshake)
+        // This stops the NullPointerException crash by waking up the SDK correctly
+        Autel.init(this, config, new CallbackWithNoParam() {
             @Override
             public void onSuccess() {
-                Log.d(TAG, "SDK Init Success");
-                checkConnection();
+                Log.d(TAG, "Autel SDK Handshake Success");
+                setupConnectionListener();
             }
 
             @Override
             public void onFailure(AutelError error) {
-                Log.e(TAG, "SDK Init Failed: " + error.getDescription());
+                Log.e(TAG, "Autel SDK Handshake Failed: " + error.getDescription());
             }
         });
     }
 
-    private void checkConnection() {
-        BaseProduct product = Autel.getDevice();
-        if (product != null) {
-            Log.d(TAG, "Drone Connected: " + product.getType());
-        } else {
-            Log.d(TAG, "No Drone Detected");
-        }
+    private void setupConnectionListener() {
+        // 3. Listen for the Drone (V3 Method)
+        Autel.setProductConnectListener(new AutelProductConnectListener() {
+            @Override
+            public void productConnected(BaseProduct product) {
+                Log.d(TAG, "Drone Connected: " + product.getType());
+                // Your gimbal logic will go here once we are inside
+            }
+
+            @Override
+            public void productDisconnected() {
+                Log.d(TAG, "Drone Disconnected");
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clean up the SDK when the app closes
+        Autel.destroy();
     }
 }
