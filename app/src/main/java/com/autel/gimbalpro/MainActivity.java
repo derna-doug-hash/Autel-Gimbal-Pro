@@ -1,6 +1,7 @@
 package com.autel.gimbalpro;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -14,6 +15,7 @@ import java.lang.reflect.Method;
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "AutelGimbalPro";
     private TextView statusTextView;
     private Button centerButton;
     private Switch reverseLogicSwitch;
@@ -30,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(80);
             statusTextView.setTextSize(10);
-            statusTextView.setText("Status: L-8 DEEP SCRAPER ARMED.\n\nNO DRONE CONNECTION REQUIRED.\nFLIP 'REVERSE ROLL LOGIC' TO EXECUTE AREA SWEEP.");
+            statusTextView.setText("Status: L-8.1 LOGCAT SCRAPER ARMED.\n\nOPEN YOUR LOG APP.\nFLIP SWITCH TO DUMP INTEL TO LOGS.");
             statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
         }
 
@@ -42,15 +44,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void executeL8DeepScrape() {
-        if (statusTextView != null) {
-            statusTextView.setText("Status: EXECUTING BRUTE FORCE SWEEP. STANDBY...");
-            statusTextView.setTextColor(android.graphics.Color.RED);
-        }
+        // Force the UI update immediately on the main thread
+        runOnUiThread(() -> {
+            if (statusTextView != null) {
+                statusTextView.setText("Status: SCRAPING TO LOGS. CHECK YOUR LOG APP FOR 'AutelGimbalPro'...");
+                statusTextView.setTextColor(android.graphics.Color.RED);
+            }
+        });
+
+        Log.i(TAG, "=== L-8.1 DEEP SCRAPER INITIATED ===");
 
         new Thread(() -> {
-            StringBuilder report = new StringBuilder("=== L-8 AREA BDA ===\n");
-            
-            // The drop zones
             String[] packages = {
                 "com.autel.internal.gimbal.", 
                 "com.autel.internal.sdk.gimbal.", 
@@ -59,10 +63,7 @@ public class MainActivity extends AppCompatActivity {
                 "com.autel.internal.remotecontroller."
             };
             
-            // The obfuscated target list
             String[] classNames = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "GimbalManager", "GimbalController", "AutelGimbalController"};
-
-            boolean foundSomething = false;
 
             for (String pkg : packages) {
                 for (String cls : classNames) {
@@ -72,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
                         for (Method m : methods) {
                             Class<?>[] params = m.getParameterTypes();
-                            // Look for methods taking 2, 3, or 4 parameters (Pitch, Roll, Yaw, Time/Speed)
+                            // Looking for 2 to 4 primitive parameters (pitch, roll, yaw, etc.)
                             if (params.length >= 2 && params.length <= 4) {
                                 boolean allNumeric = true;
                                 for (Class<?> p : params) {
@@ -83,32 +84,28 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 }
                                 
-                                // Only log it if it matches our numeric firing signature
                                 if (allNumeric) {
-                                    if (!foundSomething) {
-                                        report.append("\n[!] HIGH PROBABILITY TARGETS ACQUIRED:\n");
-                                        foundSomething = true;
-                                    }
-                                    report.append("Class [").append(cls).append("] -> ").append(m.getName()).append("(");
+                                    StringBuilder hit = new StringBuilder();
+                                    hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
                                     for (int i = 0; i < params.length; i++) {
-                                        report.append(params[i].getSimpleName());
-                                        if (i < params.length - 1) report.append(", ");
+                                        hit.append(params[i].getSimpleName());
+                                        if (i < params.length - 1) hit.append(", ");
                                     }
-                                    report.append(")\n");
+                                    hit.append(")");
+                                    Log.w(TAG, hit.toString()); // Using warning level (yellow) so it stands out in the logs
                                 }
                             }
                         }
                     } catch (Throwable e) {
-                        // Class doesn't exist or is locked, keep moving
+                        // Class doesn't exist, quietly continue
                     }
                 }
             }
-
-            if (!foundSomething) report.append("\nNo numeric firing sequences found in grid.\n");
-
+            Log.i(TAG, "=== L-8.1 SWEEP COMPLETE ===");
+            
             runOnUiThread(() -> {
                 if (statusTextView != null) {
-                    statusTextView.setText(report.toString());
+                    statusTextView.setText("Status: SWEEP COMPLETE. CHECK LOGS.");
                     statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
                 }
             });
