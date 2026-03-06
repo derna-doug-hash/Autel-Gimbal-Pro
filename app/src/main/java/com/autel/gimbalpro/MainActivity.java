@@ -7,7 +7,8 @@ import com.autel.sdk.Autel;
 import com.autel.sdk.product.BaseProduct;
 import com.autel.common.error.AutelError;
 import com.autel.sdk.SDKManager;
-import com.diagnostics.gimbalv3.R;
+// We use the internal namespace for the resources (R)
+import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "AutelGimbalPro";
@@ -17,7 +18,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // This is the missing handshake that stops the crash
+        // Initialize the Autel SDK immediately to prevent the crash
+        // This is the 'Handshake' that validates your App Key
         SDKManager.getManager().init(this, new com.autel.common.CallbackWithNoParam() {
             @Override
             public void onSuccess() {
