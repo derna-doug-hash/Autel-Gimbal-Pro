@@ -1,23 +1,34 @@
 package com.autel.gimbalpro;
 
 import android.os.Bundle;
-import android.os.Environment;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.File;
-import java.io.FileWriter;
+import com.autel.sdk.Autel;
+import com.autel.sdk.AutelSdkConfig;
+import com.autel.common.error.AutelError;
+import com.autel.common.CallbackWithNoParam;
+import com.autel.sdk.ProductConnectListener;
+import com.autel.sdk.product.BaseProduct;
+
 import java.lang.reflect.Method;
 
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "AutelGimbalPro";
     private TextView statusTextView;
-    private Switch reverseLogicSwitch;
+    private Button centerButton;
+    private SeekBar pitchSlider, yawSlider, rollSlider;
+    
+    private BaseProduct liveDrone = null;
+    private Object liveGimbal = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,101 +41,107 @@ public class MainActivity extends AppCompatActivity {
         if (statusTextView != null) {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(80);
-            statusTextView.setTextSize(10);
-            statusTextView.setText("Status: L-9 BROAD SPECTRUM ARMED.\n\nFLIP SWITCH TO WRITE INTEL TO DOWNLOADS FOLDER.");
-            statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
+            statusTextView.setTextSize(12);
+            statusTextView.setText("Status: OPERATION BLUEPRINT ARMED.\n\nWAITING FOR DRONE CONNECTION...");
         }
 
-        if (reverseLogicSwitch != null) {
-            reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (isChecked) executeL9BroadSpectrum();
-            });
-        }
-    }
+        AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder().setPostOnUi(true).create();
 
-    private void executeL9BroadSpectrum() {
-        runOnUiThread(() -> {
-            if (statusTextView != null) {
-                statusTextView.setText("Status: WRITING L-9 DROP TO DISK. DO NOT CLOSE APP...");
-                statusTextView.setTextColor(android.graphics.Color.RED);
+        Autel.init(this, config, new CallbackWithNoParam() {
+            @Override
+            public void onSuccess() {
+                Autel.setProductConnectListener(new ProductConnectListener() {
+                    @Override
+                    public void productConnected(BaseProduct product) {
+                        liveDrone = product;
+                        try {
+                            Method getGimbalMethod = liveDrone.getClass().getMethod("getGimbal");
+                            liveGimbal = getGimbalMethod.invoke(liveDrone);
+                            
+                            runOnUiThread(() -> {
+                                if (statusTextView != null) {
+                                    statusTextView.setText("Status: HVT SECURED!\nTarget Locked. \n\nADJUST SLIDERS AND TAP 'CENTER ALL MOTORS' TO FIRE.");
+                                    statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
+                                }
+                            });
+                        } catch (Exception e) {
+                            logError("Gimbal Extraction Failed: " + e.getMessage());
+                        }
+                    }
+
+                    @Override
+                    public void productDisconnected() {
+                        liveDrone = null;
+                        liveGimbal = null;
+                        logError("Drone Disconnected.");
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(AutelError error) {
+                logError("SDK Init Failed: " + error.getDescription());
             }
         });
 
-        new Thread(() -> {
-            File dropZone = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File intelFile = new File(dropZone, "Autel_L9_Intel_Drop.txt");
-            
-            boolean foundSomething = false;
+        if (centerButton != null) {
+            centerButton.setOnClickListener(v -> executeFiringSequence());
+        }
+    }
 
-            try (FileWriter writer = new FileWriter(intelFile, false)) {
-                writer.append("=== L-9 BROAD SPECTRUM SWEEP ===\n\n");
+    private void executeFiringSequence() {
+        if (liveGimbal == null) {
+            logError("NO GIMBAL TARGET ACQUIRED.");
+            return;
+        }
 
-                String[] packages = {
-                    "com.autel.internal.gimbal.", 
-                    "com.autel.internal.sdk.gimbal.", 
-                    "com.autel.sdk.gimbal.",
-                    "com.autel.internal.remotecontroller."
-                };
-                
-                String[] classNames = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "GimbalManager", "GimbalController", "AutelGimbalController"};
+        try {
+            // Read values from your sliders (assuming 0-100 range, centering at 0 for pitch/roll/yaw)
+            // Adjust math here if your sliders have a different range setup!
+            int pitch = (pitchSlider != null) ? pitchSlider.getProgress() - 50 : 0;
+            int roll = (rollSlider != null) ? rollSlider.getProgress() - 50 : 0;
+            int yaw = (yawSlider != null) ? yawSlider.getProgress() - 50 : 0;
 
-                for (String pkg : packages) {
-                    for (String cls : classNames) {
-                        try {
-                            Class<?> targetClass = Class.forName(pkg + cls);
-                            Method[] methods = targetClass.getDeclaredMethods();
-
-                            for (Method m : methods) {
-                                String name = m.getName().toLowerCase();
-                                // The Broad Filter
-                                if (name.contains("angle") || name.contains("pitch") || 
-                                    name.contains("yaw") || name.contains("roll") || 
-                                    name.contains("rotat") || name.contains("move") || name.contains("set")) {
-                                    
-                                    StringBuilder hit = new StringBuilder();
-                                    hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
-                                    
-                                    Class<?>[] params = m.getParameterTypes();
-                                    for (int i = 0; i < params.length; i++) {
-                                        hit.append(params[i].getSimpleName());
-                                        if (i < params.length - 1) hit.append(", ");
-                                    }
-                                    hit.append(")\n");
-                                    writer.append(hit.toString());
-                                    foundSomething = true;
-                                }
-                            }
-                        } catch (Throwable e) {
-                            // Class missing or locked, keep pushing
-                        }
-                    }
-                }
-
-                if (!foundSomething) {
-                    writer.append("\nNEGATIVE CONTACT. No movement or setting methods found.\n");
-                } else {
-                    writer.append("\n=== SWEEP COMPLETE ===");
-                }
-
-                final String finalPath = intelFile.getAbsolutePath();
-                
-                runOnUiThread(() -> {
-                    if (statusTextView != null) {
-                        statusTextView.setText("Status: L-9 INTEL SECURED!\n\nFile saved to:\n" + finalPath + "\n\nExtract via File Manager.");
-                        statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
-                    }
-                });
-
-            } catch (Exception e) {
-                final String errorMsg = e.getMessage();
-                runOnUiThread(() -> {
-                    if (statusTextView != null) {
-                        statusTextView.setText("ERROR WRITING TO DISK: " + errorMsg);
-                        statusTextView.setTextColor(android.graphics.Color.RED);
-                    }
-                });
+            if (statusTextView != null) {
+                statusTextView.setText("FIRING COORDINATES: P=" + pitch + " R=" + roll + " Y=" + yaw + "...");
+                statusTextView.setTextColor(android.graphics.Color.RED);
             }
-        }).start();
+
+            // The Golden BB: Invoking the hidden method we found in the blueprints
+            Class<?> gimbalClass = liveGimbal.getClass();
+            
+            // Try integer parameters first (as seen in the GitHub code)
+            try {
+                Method setAngleMethod = gimbalClass.getMethod("setGimbalAngle", int.class, int.class, int.class);
+                setAngleMethod.invoke(liveGimbal, pitch, roll, yaw);
+                
+                if (statusTextView != null) {
+                    statusTextView.setText("Status: SPLASH! INT COMMAND SENT.\n(P=" + pitch + ", R=" + roll + ", Y=" + yaw + ")");
+                    statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
+                }
+            } catch (NoSuchMethodException e) {
+                // If it's not integers, Autel might have switched to floats in the V3 update
+                Method setAngleMethodFloat = gimbalClass.getMethod("setGimbalAngle", float.class, float.class, float.class);
+                setAngleMethodFloat.invoke(liveGimbal, (float)pitch, (float)roll, (float)yaw);
+                
+                if (statusTextView != null) {
+                    statusTextView.setText("Status: SPLASH! FLOAT COMMAND SENT.\n(P=" + pitch + ", R=" + roll + ", Y=" + yaw + ")");
+                    statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
+                }
+            }
+
+        } catch (Exception e) {
+            logError("Misfire: " + e.toString());
+        }
+    }
+
+    private void logError(String msg) {
+        runOnUiThread(() -> {
+            if (statusTextView != null) {
+                statusTextView.setText("ERROR: " + msg);
+                statusTextView.setTextColor(android.graphics.Color.RED);
+            }
+        });
     }
 
     private void findUIElements(ViewGroup group) {
@@ -133,8 +150,14 @@ public class MainActivity extends AppCompatActivity {
             if (child instanceof TextView && !(child instanceof Button) && !(child instanceof Switch)) {
                 String text = ((TextView) child).getText().toString().toUpperCase();
                 if (text.contains("STATUS") || text.contains("UNKNOWN")) statusTextView = (TextView) child;
-            } else if (child instanceof Switch) {
-                reverseLogicSwitch = (Switch) child;
+            } else if (child instanceof Button) {
+                String text = ((Button) child).getText().toString().toUpperCase();
+                if (text.contains("CENTER")) centerButton = (Button) child;
+            } else if (child instanceof SeekBar) {
+                // Assigning the sliders based on the order they appear in the UI
+                if (pitchSlider == null) pitchSlider = (SeekBar) child;
+                else if (yawSlider == null) yawSlider = (SeekBar) child;
+                else if (rollSlider == null) rollSlider = (SeekBar) child;
             } else if (child instanceof ViewGroup) {
                 findUIElements((ViewGroup) child);
             }
