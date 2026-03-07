@@ -16,6 +16,7 @@ import com.autel.sdk.ProductConnectListener;
 import com.autel.sdk.product.BaseProduct;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 
 public class MainActivity extends AppCompatActivity {
     private TextView statusTextView;
@@ -31,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
         ViewGroup root = findViewById(android.R.id.content);
         findUIElements(root);
 
-        updateStatus("Status: L-14.1 MANUAL PROBE ARMED.\n\nCLEAR AUTEL EXPLORER DEFAULTS FIRST.\nTHEN TAP 'CENTER' TO FORCE HANDSHAKE.", android.graphics.Color.BLUE);
+        updateStatus("Status: L-14.2 STEALTH PROBE ARMED.\n\nCLEAR DEFAULTS, THEN TAP 'CENTER' TO SNATCH CONNECTION.", android.graphics.Color.BLUE);
 
         AutelSdkConfig config = new AutelSdkConfig.AutelSdkConfigBuilder().setPostOnUi(true).create();
         Autel.init(this, config, new CallbackWithNoParam() {
@@ -58,9 +59,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (centerButton != null) {
             centerButton.setOnClickListener(v -> {
-                // If we don't have a product yet, try to force a probe
                 if (liveDrone == null) {
-                    probeForProduct();
+                    stealthProbe();
                 } else {
                     executeFiringSequence();
                 }
@@ -68,15 +68,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void probeForProduct() {
-        updateStatus("PROBING FOR HARDWARE...", android.graphics.Color.MAGENTA);
-        // Actively ask the SDK for the current product
-        BaseProduct product = Autel.getProduct();
-        if (product != null) {
-            bindProduct(product);
-            updateStatus("FORCE HANDSHAKE SUCCESSFUL!", android.graphics.Color.parseColor("#00AA00"));
-        } else {
-            updateStatus("PROBE FAILED: NO HARDWARE DETECTED.\nIs 'Default App' cleared for Autel Explorer?", android.graphics.Color.RED);
+    private void stealthProbe() {
+        updateStatus("INITIATING STEALTH PROBE...", android.graphics.Color.MAGENTA);
+        try {
+            // We are going to try to find the 'mCurrentProduct' field inside the Autel class
+            // which is where most versions of this SDK store the live connection.
+            Field productField = Autel.class.getDeclaredField("mCurrentProduct");
+            productField.setAccessible(true);
+            BaseProduct product = (BaseProduct) productField.get(null);
+
+            if (product != null) {
+                bindProduct(product);
+                updateStatus("STEALTH SNATCH SUCCESSFUL!", android.graphics.Color.parseColor("#00AA00"));
+            } else {
+                updateStatus("PROBE FAILED: NO PRODUCT IN MEMORY.\nEnsure drone is linked to controller.", android.graphics.Color.RED);
+            }
+        } catch (Exception e) {
+            updateStatus("PROBE ERROR: SDK MEMORY PROTECTED.\n" + e.getMessage(), android.graphics.Color.RED);
         }
     }
 
@@ -102,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 Method m = gimbalClass.getMethod("setGimbalAngle", int.class, int.class, int.class);
                 m.invoke(liveGimbal, pitch, roll, yaw);
-                updateStatus("SPLASH (INT): P=" + pitch + " R=" + roll + " Y=" + yaw, android.graphics.Color.parseColor("#00AA00"));
+                updateStatus("SPLASH (INT): P=" + pitch, android.graphics.Color.parseColor("#00AA00"));
             } catch (Exception e) {
                 Method m = gimbalClass.getMethod("setGimbalAngle", float.class, float.class, float.class);
                 m.invoke(liveGimbal, (float)pitch, (float)roll, (float)yaw);
