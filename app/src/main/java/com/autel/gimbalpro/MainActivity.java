@@ -31,40 +31,38 @@ public class MainActivity extends AppCompatActivity {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(80);
             statusTextView.setTextSize(10);
-            statusTextView.setText("Status: L-8.2 DIRECT-TO-DISK ARMED.\n\nFLIP SWITCH TO WRITE INTEL TO DOWNLOADS FOLDER.");
+            statusTextView.setText("Status: L-9 BROAD SPECTRUM ARMED.\n\nFLIP SWITCH TO WRITE INTEL TO DOWNLOADS FOLDER.");
             statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
         }
 
         if (reverseLogicSwitch != null) {
             reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (isChecked) executeL8DirectToDisk();
+                if (isChecked) executeL9BroadSpectrum();
             });
         }
     }
 
-    private void executeL8DirectToDisk() {
+    private void executeL9BroadSpectrum() {
         runOnUiThread(() -> {
             if (statusTextView != null) {
-                statusTextView.setText("Status: WRITING TO DISK. DO NOT CLOSE APP...");
+                statusTextView.setText("Status: WRITING L-9 DROP TO DISK. DO NOT CLOSE APP...");
                 statusTextView.setTextColor(android.graphics.Color.RED);
             }
         });
 
         new Thread(() -> {
-            // Setup the Drop Zone (Downloads Folder)
             File dropZone = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File intelFile = new File(dropZone, "Autel_Intel_Drop.txt");
+            File intelFile = new File(dropZone, "Autel_L9_Intel_Drop.txt");
             
             boolean foundSomething = false;
 
-            try (FileWriter writer = new FileWriter(intelFile, false)) { // 'false' overwrites old files
-                writer.append("=== L-8.2 TACTICAL INTEL DROP ===\n\n");
+            try (FileWriter writer = new FileWriter(intelFile, false)) {
+                writer.append("=== L-9 BROAD SPECTRUM SWEEP ===\n\n");
 
                 String[] packages = {
                     "com.autel.internal.gimbal.", 
                     "com.autel.internal.sdk.gimbal.", 
                     "com.autel.sdk.gimbal.",
-                    "com.autel.internal.video.",
                     "com.autel.internal.remotecontroller."
                 };
                 
@@ -77,28 +75,23 @@ public class MainActivity extends AppCompatActivity {
                             Method[] methods = targetClass.getDeclaredMethods();
 
                             for (Method m : methods) {
-                                Class<?>[] params = m.getParameterTypes();
-                                if (params.length >= 2 && params.length <= 4) {
-                                    boolean allNumeric = true;
-                                    for (Class<?> p : params) {
-                                        String pName = p.getSimpleName().toLowerCase();
-                                        if (!pName.equals("float") && !pName.equals("int") && !pName.equals("double") && !pName.equals("short") && !pName.equals("long")) {
-                                            allNumeric = false;
-                                            break;
-                                        }
-                                    }
+                                String name = m.getName().toLowerCase();
+                                // The Broad Filter
+                                if (name.contains("angle") || name.contains("pitch") || 
+                                    name.contains("yaw") || name.contains("roll") || 
+                                    name.contains("rotat") || name.contains("move") || name.contains("set")) {
                                     
-                                    if (allNumeric) {
-                                        StringBuilder hit = new StringBuilder();
-                                        hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
-                                        for (int i = 0; i < params.length; i++) {
-                                            hit.append(params[i].getSimpleName());
-                                            if (i < params.length - 1) hit.append(", ");
-                                        }
-                                        hit.append(")\n");
-                                        writer.append(hit.toString());
-                                        foundSomething = true;
+                                    StringBuilder hit = new StringBuilder();
+                                    hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
+                                    
+                                    Class<?>[] params = m.getParameterTypes();
+                                    for (int i = 0; i < params.length; i++) {
+                                        hit.append(params[i].getSimpleName());
+                                        if (i < params.length - 1) hit.append(", ");
                                     }
+                                    hit.append(")\n");
+                                    writer.append(hit.toString());
+                                    foundSomething = true;
                                 }
                             }
                         } catch (Throwable e) {
@@ -108,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 if (!foundSomething) {
-                    writer.append("\nNEGATIVE CONTACT. No numeric firing sequences found in scanned sectors.\n");
+                    writer.append("\nNEGATIVE CONTACT. No movement or setting methods found.\n");
                 } else {
                     writer.append("\n=== SWEEP COMPLETE ===");
                 }
@@ -117,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
                 
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("Status: INTEL SECURED!\n\nFile saved to:\n" + finalPath + "\n\nExtract via File Manager.");
+                        statusTextView.setText("Status: L-9 INTEL SECURED!\n\nFile saved to:\n" + finalPath + "\n\nExtract via File Manager.");
                         statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
                     }
                 });
@@ -126,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
                 final String errorMsg = e.getMessage();
                 runOnUiThread(() -> {
                     if (statusTextView != null) {
-                        statusTextView.setText("ERROR WRITING TO DISK: " + errorMsg + "\nCheck app storage permissions.");
+                        statusTextView.setText("ERROR WRITING TO DISK: " + errorMsg);
                         statusTextView.setTextColor(android.graphics.Color.RED);
                     }
                 });
