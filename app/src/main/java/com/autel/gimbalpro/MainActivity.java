@@ -1,23 +1,22 @@
 package com.autel.gimbalpro;
 
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Environment;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.lang.reflect.Method;
 
 import com.autel.gimbalpro.R;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "AutelGimbalPro";
     private TextView statusTextView;
-    private Button centerButton;
     private Switch reverseLogicSwitch;
 
     @Override
@@ -32,83 +31,106 @@ public class MainActivity extends AppCompatActivity {
             statusTextView.setSingleLine(false);
             statusTextView.setMaxLines(80);
             statusTextView.setTextSize(10);
-            statusTextView.setText("Status: L-8.1 LOGCAT SCRAPER ARMED.\n\nOPEN YOUR LOG APP.\nFLIP SWITCH TO DUMP INTEL TO LOGS.");
+            statusTextView.setText("Status: L-8.2 DIRECT-TO-DISK ARMED.\n\nFLIP SWITCH TO WRITE INTEL TO DOWNLOADS FOLDER.");
             statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
         }
 
         if (reverseLogicSwitch != null) {
             reverseLogicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (isChecked) executeL8DeepScrape();
+                if (isChecked) executeL8DirectToDisk();
             });
         }
     }
 
-    private void executeL8DeepScrape() {
-        // Force the UI update immediately on the main thread
+    private void executeL8DirectToDisk() {
         runOnUiThread(() -> {
             if (statusTextView != null) {
-                statusTextView.setText("Status: SCRAPING TO LOGS. CHECK YOUR LOG APP FOR 'AutelGimbalPro'...");
+                statusTextView.setText("Status: WRITING TO DISK. DO NOT CLOSE APP...");
                 statusTextView.setTextColor(android.graphics.Color.RED);
             }
         });
 
-        Log.i(TAG, "=== L-8.1 DEEP SCRAPER INITIATED ===");
-
         new Thread(() -> {
-            String[] packages = {
-                "com.autel.internal.gimbal.", 
-                "com.autel.internal.sdk.gimbal.", 
-                "com.autel.sdk.gimbal.",
-                "com.autel.internal.video.",
-                "com.autel.internal.remotecontroller."
-            };
+            // Setup the Drop Zone (Downloads Folder)
+            File dropZone = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File intelFile = new File(dropZone, "Autel_Intel_Drop.txt");
             
-            String[] classNames = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "GimbalManager", "GimbalController", "AutelGimbalController"};
+            boolean foundSomething = false;
 
-            for (String pkg : packages) {
-                for (String cls : classNames) {
-                    try {
-                        Class<?> targetClass = Class.forName(pkg + cls);
-                        Method[] methods = targetClass.getDeclaredMethods();
+            try (FileWriter writer = new FileWriter(intelFile, false)) { // 'false' overwrites old files
+                writer.append("=== L-8.2 TACTICAL INTEL DROP ===\n\n");
 
-                        for (Method m : methods) {
-                            Class<?>[] params = m.getParameterTypes();
-                            // Looking for 2 to 4 primitive parameters (pitch, roll, yaw, etc.)
-                            if (params.length >= 2 && params.length <= 4) {
-                                boolean allNumeric = true;
-                                for (Class<?> p : params) {
-                                    String pName = p.getSimpleName().toLowerCase();
-                                    if (!pName.equals("float") && !pName.equals("int") && !pName.equals("double") && !pName.equals("short") && !pName.equals("long")) {
-                                        allNumeric = false;
-                                        break;
+                String[] packages = {
+                    "com.autel.internal.gimbal.", 
+                    "com.autel.internal.sdk.gimbal.", 
+                    "com.autel.sdk.gimbal.",
+                    "com.autel.internal.video.",
+                    "com.autel.internal.remotecontroller."
+                };
+                
+                String[] classNames = {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "GimbalManager", "GimbalController", "AutelGimbalController"};
+
+                for (String pkg : packages) {
+                    for (String cls : classNames) {
+                        try {
+                            Class<?> targetClass = Class.forName(pkg + cls);
+                            Method[] methods = targetClass.getDeclaredMethods();
+
+                            for (Method m : methods) {
+                                Class<?>[] params = m.getParameterTypes();
+                                if (params.length >= 2 && params.length <= 4) {
+                                    boolean allNumeric = true;
+                                    for (Class<?> p : params) {
+                                        String pName = p.getSimpleName().toLowerCase();
+                                        if (!pName.equals("float") && !pName.equals("int") && !pName.equals("double") && !pName.equals("short") && !pName.equals("long")) {
+                                            allNumeric = false;
+                                            break;
+                                        }
                                     }
-                                }
-                                
-                                if (allNumeric) {
-                                    StringBuilder hit = new StringBuilder();
-                                    hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
-                                    for (int i = 0; i < params.length; i++) {
-                                        hit.append(params[i].getSimpleName());
-                                        if (i < params.length - 1) hit.append(", ");
+                                    
+                                    if (allNumeric) {
+                                        StringBuilder hit = new StringBuilder();
+                                        hit.append("HIT: [").append(pkg).append(cls).append("] -> ").append(m.getName()).append("(");
+                                        for (int i = 0; i < params.length; i++) {
+                                            hit.append(params[i].getSimpleName());
+                                            if (i < params.length - 1) hit.append(", ");
+                                        }
+                                        hit.append(")\n");
+                                        writer.append(hit.toString());
+                                        foundSomething = true;
                                     }
-                                    hit.append(")");
-                                    Log.w(TAG, hit.toString()); // Using warning level (yellow) so it stands out in the logs
                                 }
                             }
+                        } catch (Throwable e) {
+                            // Class missing or locked, keep pushing
                         }
-                    } catch (Throwable e) {
-                        // Class doesn't exist, quietly continue
                     }
                 }
-            }
-            Log.i(TAG, "=== L-8.1 SWEEP COMPLETE ===");
-            
-            runOnUiThread(() -> {
-                if (statusTextView != null) {
-                    statusTextView.setText("Status: SWEEP COMPLETE. CHECK LOGS.");
-                    statusTextView.setTextColor(android.graphics.Color.parseColor("#000000"));
+
+                if (!foundSomething) {
+                    writer.append("\nNEGATIVE CONTACT. No numeric firing sequences found in scanned sectors.\n");
+                } else {
+                    writer.append("\n=== SWEEP COMPLETE ===");
                 }
-            });
+
+                final String finalPath = intelFile.getAbsolutePath();
+                
+                runOnUiThread(() -> {
+                    if (statusTextView != null) {
+                        statusTextView.setText("Status: INTEL SECURED!\n\nFile saved to:\n" + finalPath + "\n\nExtract via File Manager.");
+                        statusTextView.setTextColor(android.graphics.Color.parseColor("#00AA00"));
+                    }
+                });
+
+            } catch (Exception e) {
+                final String errorMsg = e.getMessage();
+                runOnUiThread(() -> {
+                    if (statusTextView != null) {
+                        statusTextView.setText("ERROR WRITING TO DISK: " + errorMsg + "\nCheck app storage permissions.");
+                        statusTextView.setTextColor(android.graphics.Color.RED);
+                    }
+                });
+            }
         }).start();
     }
 
@@ -118,9 +140,6 @@ public class MainActivity extends AppCompatActivity {
             if (child instanceof TextView && !(child instanceof Button) && !(child instanceof Switch)) {
                 String text = ((TextView) child).getText().toString().toUpperCase();
                 if (text.contains("STATUS") || text.contains("UNKNOWN")) statusTextView = (TextView) child;
-            } else if (child instanceof Button) {
-                String text = ((Button) child).getText().toString().toUpperCase();
-                if (text.contains("CENTER")) centerButton = (Button) child;
             } else if (child instanceof Switch) {
                 reverseLogicSwitch = (Switch) child;
             } else if (child instanceof ViewGroup) {
